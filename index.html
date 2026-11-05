@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#07070a" />
+  <title>Gloamvein — A Dark Fantasy Mining Descent</title>
+  <meta name="description" content="Break the veins. Kindle the forge. Go deeper than the dark allows. A first-person dark fantasy mining game." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2307070a'/%3E%3Cpath d='M32 8 L46 32 L32 56 L18 32 Z' fill='%23ff8a3c' opacity='.9'/%3E%3Cpath d='M32 20 L39 32 L32 44 L25 32 Z' fill='%23ffe0b0'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene" tabindex="-1" aria-label="The caverns of Gloamvein"></canvas>
+
+    <div class="fx-vignette"></div>
+    <div class="fx-grain"></div>
+    <div id="damage-flash"></div>
+    <div id="low-hp"></div>
+    <div id="fade"></div>
+
+    <!-- ══════════════════════════ HUD ══════════════════════════ -->
+    <section id="hud" class="hidden">
+      <div class="hud-top">
+        <div id="depth-panel" class="frame">
+          <div class="depth-kicker"><span>DEPTH</span><b id="depth-numeral">I</b></div>
+          <h2 id="depth-name">The Ashen Drift</h2>
+          <p id="depth-motto" class="depth-motto">Where the first vein was struck.</p>
+          <div class="tithe">
+            <div class="tithe-label"><span>Vein Tithe</span><span id="tithe-value">0 / 28</span></div>
+            <div class="bar"><i id="tithe-fill" style="width:0%"></i><span class="bar-shine"></span></div>
+          </div>
+        </div>
+
+        <div id="boss-bar" class="hidden">
+          <div class="boss-name"><span>THE GLOAMHEART</span><em id="boss-hp-label">850</em></div>
+          <div class="bar boss"><i id="boss-fill" style="width:100%"></i><span class="bar-shine"></span></div>
+        </div>
+
+        <div id="ore-panel" class="frame" aria-label="Ore carried">
+          <div class="ore-row" data-ore="ember"><i class="gem ember"></i><span class="ore-name">Emberstone</span><b id="ore-ember">0</b></div>
+          <div class="ore-row" data-ore="gloam"><i class="gem gloam"></i><span class="ore-name">Gloamglass</span><b id="ore-gloam">0</b></div>
+          <div class="ore-row" data-ore="blood"><i class="gem blood"></i><span class="ore-name">Bloodiron</span><b id="ore-blood">0</b></div>
+          <div class="ore-row" data-ore="soul"><i class="gem soul"></i><span class="ore-name">Soulquartz</span><b id="ore-soul">0</b></div>
+        </div>
+      </div>
+
+      <div id="crosshair" aria-hidden="true">
+        <i class="ch-dot"></i>
+        <i class="ch-tick t"></i><i class="ch-tick r"></i><i class="ch-tick b"></i><i class="ch-tick l"></i>
+        <svg class="ch-ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24"/></svg>
+      </div>
+
+      <div id="target-panel" class="hidden">
+        <div class="target-head"><span id="target-name">Emberstone Vein</span><em id="target-hp">30</em></div>
+        <div class="bar small"><i id="target-fill" style="width:100%"></i></div>
+      </div>
+
+      <div id="interact-prompt" class="hidden"><kbd id="interact-key">E</kbd><span id="interact-text">The Ember Forge</span></div>
+
+      <div id="hud-health" class="frame">
+        <div class="health-label"><span>VITALITY</span><span id="health-value">100 / 100</span></div>
+        <div class="bar health"><i id="health-fill" style="width:100%"></i><span class="bar-shine"></span></div>
+      </div>
+
+      <div id="hint-strip">
+        <span><kbd>LMB</kbd> hold to mine</span>
+        <span><kbd>E</kbd> interact</span>
+        <span><kbd>Shift</kbd> run</span>
+        <span><kbd>Esc</kbd> pause</span>
+      </div>
+
+      <div id="toasts" aria-live="polite"></div>
+      <div id="objective-toast"></div>
+
+      <div class="mobile-pause-wrap"><button id="btn-pause" class="icon-button mobile-only" aria-label="Pause game"><span></span><span></span></button></div>
+
+      <div id="mobile-controls">
+        <div id="joystick" aria-label="Movement joystick"><div class="joy-ring"></div><div id="joystick-thumb"></div><span class="joy-label">MOVE</span></div>
+        <button id="btn-mine" class="touch-btn mine" aria-label="Strike with pickaxe">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40 L33 15" /><path d="M24 7 C31 7 39 11 41 18 C35 15 31 14 27 17 C25 13 22 10 18 9 Z" /><path d="M33 15 L37 11" /></svg>
+          <span>MINE</span>
+        </button>
+        <button id="btn-interact" class="touch-btn small" aria-label="Interact"><span>USE</span></button>
+        <button id="btn-jump" class="touch-btn small jump" aria-label="Jump"><span>JUMP</span></button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ TITLE ══════════════════════════ -->
+    <section id="title-screen" class="screen">
+      <div class="title-ornament left"></div>
+      <div class="title-ornament right"></div>
+      <div class="title-content">
+        <p class="eyebrow">A DARK FANTASY MINING DESCENT</p>
+        <h1 class="game-title">GLOAM<span>VEIN</span></h1>
+        <div class="title-rule"><i></i><b></b><i></i></div>
+        <p class="tagline">The mountain remembers every soul that digs.</p>
+        <p class="lede">Break the veins. Kindle the forge.<br />Go deeper than the dark allows.</p>
+        <button id="start-button" class="btn btn-primary" type="button">Start Game</button>
+        <div class="controls-grid">
+          <div><kbd>W A S D</kbd><span>Move</span></div>
+          <div><kbd>Mouse</kbd><span>Look</span></div>
+          <div><kbd>LMB</kbd><span>Mine</span></div>
+          <div><kbd>E</kbd><span>Interact</span></div>
+        </div>
+        <p id="best-record" class="best-record">No soul has returned from the deep.</p>
+      </div>
+      <div class="title-footer">
+        <span>Headphones recommended</span>
+        <button id="title-sound" class="icon-button" aria-label="Toggle sound">
+          <svg class="ic-sound-on" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8c2 2 2 6 0 8M19 5c4 4 4 10 0 14"/></svg>
+          <svg class="ic-sound-off hidden" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>
+        </button>
+        <span class="build-mark">FIRST DESCENT</span>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ FORGE ══════════════════════════ -->
+    <section id="forge-screen" class="screen overlay hidden">
+      <div class="forge-panel">
+        <header class="forge-head">
+          <div>
+            <p class="eyebrow">THE EMBER FORGE</p>
+            <h2>Bind your fate to iron</h2>
+            <p class="forge-sub">Every strike feeds the fire. Spend what the dark gives you.</p>
+          </div>
+          <button id="forge-close" class="icon-button close" aria-label="Leave the forge">&times;</button>
+        </header>
+        <div id="forge-wallet" class="wallet"></div>
+        <div id="upgrade-list" class="upgrade-list"></div>
+        <footer class="forge-foot">
+          <span><kbd>E</kbd> leave the forge</span>
+          <span class="forge-note">Upgrades endure through death.</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ PAUSE ══════════════════════════ -->
+    <section id="pause-screen" class="screen overlay hidden">
+      <div class="dialog">
+        <p class="eyebrow">THE DARK WAITS</p>
+        <h2>Paused</h2>
+        <p class="dialog-sub">The hollow ones are patient. You should not be.</p>
+        <button id="resume-button" class="btn btn-primary" type="button">Resume Descent</button>
+        <button id="pause-sound" class="btn btn-ghost" type="button">Sound: On</button>
+        <button id="abandon-button" class="btn btn-ghost danger" type="button">Abandon Run</button>
+        <div class="pause-controls">
+          <span><kbd>W A S D</kbd> move</span><span><kbd>LMB</kbd> mine</span><span><kbd>E</kbd> interact</span><span><kbd>Tab</kbd> echo</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ DEATH ══════════════════════════ -->
+    <section id="death-screen" class="screen overlay hidden">
+      <div class="dialog death-dialog">
+        <p class="eyebrow">THE DEEP CLAIMS ITS DUE</p>
+        <h2>The Dark Takes You</h2>
+        <p id="death-loss" class="dialog-sub">You wake at the forge, lighter than before.</p>
+        <div id="death-stats" class="run-stats"></div>
+        <button id="revive-button" class="btn btn-primary" type="button">Rise Again</button>
+        <button id="death-abandon" class="btn btn-ghost danger" type="button">Abandon Run</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ VICTORY ══════════════════════════ -->
+    <section id="victory-screen" class="screen overlay hidden">
+      <div class="dialog victory-dialog">
+        <p class="eyebrow">THE HEART IS BROKEN</p>
+        <h2>The Gloam Bends</h2>
+        <p class="dialog-sub">The mine exhales for the first time in a thousand years.<br />You climb toward a dawn no delver has seen.</p>
+        <div id="victory-stats" class="run-stats"></div>
+        <button id="restart-button" class="btn btn-primary" type="button">Begin Anew</button>
+      </div>
+    </section>
+
+    <div id="transition-veil" class="hidden">
+      <div class="transition-inner">
+        <div class="transition-rule"><i></i><b></b><i></i></div>
+        <div id="transition-depth">DEPTH II</div>
+        <div id="transition-name">The Cinder Warrens</div>
+        <p id="transition-motto"></p>
+      </div>
+    </div>
+
+    <div id="fatal" class="hidden">
+      <div class="dialog"><h2>The dark will not render</h2><p>Gloamvein needs WebGL. Try a current browser with hardware acceleration enabled.</p></div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
